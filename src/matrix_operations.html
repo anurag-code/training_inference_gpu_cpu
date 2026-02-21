@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
+</head>
 <body>
 <div class="page">
 
@@ -477,6 +478,10 @@ let cpuDone = new Set();
 const VEC_LEN = 5;  // input vector size
 const W_COLS = 6;   // weight columns
 
+// CPU uses smaller cells so everything fits in 800px
+const CPU_CELL = 32;
+const CPU_GAP  = 3;
+
 function drawCPUFrame() {
   const W = cpuC.width, H = cpuC.height;
   cpuCtx.clearRect(0,0,W,H);
@@ -485,43 +490,37 @@ function drawCPUFrame() {
 
   const curWcol = cpuStep;
 
-  // Layout: all elements share the same vertical center
-  // Weight matrix is VEC_LEN rows tall — compute its total height
-  const matrixH = VEC_LEN * (CELL + GAP) - GAP;
-  const matrixW_total = W_COLS * (CELL + GAP) - GAP;
-  const vecW_total = VEC_LEN * (CELL + GAP) - GAP;
-  const outW_total = W_COLS * (CELL + GAP) - GAP;
+  const matrixH       = VEC_LEN * (CPU_CELL + CPU_GAP) - CPU_GAP;
+  const matrixW_total = W_COLS  * (CPU_CELL + CPU_GAP) - CPU_GAP;
+  const vecW_total    = VEC_LEN * (CPU_CELL + CPU_GAP) - CPU_GAP;
+  const outW_total    = W_COLS  * (CPU_CELL + CPU_GAP) - CPU_GAP;
 
-  // Reserve top 36px for labels, bottom 48px for annotations
   const usableTop = 50;
-  const usableH = H - usableTop - 50;
-  const centerY = usableTop + usableH / 2;
+  const usableH   = H - usableTop - 50;
+  const centerY   = usableTop + usableH / 2;
 
-  // Vector is 1 row tall — center it on centerY
-  const vecY = centerY - CELL / 2;
-
-  // Weight matrix — center vertically on centerY
+  const vecY    = centerY - CPU_CELL / 2;
   const matTopY = centerY - matrixH / 2;
 
-  // X positions
-  const vX = 16;
-  const opX = vX + vecW_total + 18;
-  const wX = opX + 28;
-  const eqX = wX + matrixW_total + PAD*2 + 18;
-  const outX = eqX + 28;
+  // X positions — calculated to fit within 800px
+  const vX   = 16;
+  const opX  = vX + vecW_total + 12;
+  const wX   = opX + 26;
+  const eqX  = wX + 10 + matrixW_total + 10 + 12;
+  const outX = eqX + 26;
 
   // ── Draw input vector (1 row, VEC_LEN cols) ──
   for (let i = 0; i < VEC_LEN; i++) {
-    let cx = vX + i * (CELL + GAP);
+    let cx = vX + i * (CPU_CELL + CPU_GAP);
     let cy = vecY;
     cpuCtx.fillStyle = 'rgba(2,62,138,0.15)';
-    cpuCtx.beginPath(); cpuCtx.roundRect(cx, cy, CELL, CELL, 4); cpuCtx.fill();
+    cpuCtx.beginPath(); cpuCtx.roundRect(cx, cy, CPU_CELL, CPU_CELL, 4); cpuCtx.fill();
     cpuCtx.strokeStyle = 'rgba(2,62,138,0.4)'; cpuCtx.lineWidth = 1;
     cpuCtx.stroke();
-    cpuCtx.font = '10px JetBrains Mono';
+    cpuCtx.font = '9px JetBrains Mono';
     cpuCtx.fillStyle = '#023e8a';
     cpuCtx.textAlign = 'center'; cpuCtx.textBaseline = 'middle';
-    cpuCtx.fillText(`t${i}`, cx + CELL/2, cy + CELL/2);
+    cpuCtx.fillText(`t${i}`, cx + CPU_CELL/2, cy + CPU_CELL/2);
   }
 
   // ── × sign — vertically centered ──
@@ -531,7 +530,6 @@ function drawCPUFrame() {
   cpuCtx.fillText('×', opX + 14, centerY + 8);
 
   // ── Draw weight matrix (VEC_LEN rows × W_COLS cols) ──
-  // Add brackets
   cpuCtx.strokeStyle = '#1a1a2e'; cpuCtx.lineWidth = 2.5;
   // left bracket
   cpuCtx.beginPath();
@@ -541,31 +539,31 @@ function drawCPUFrame() {
   cpuCtx.lineTo(wX + 6, matTopY + matrixH + 2);
   cpuCtx.stroke();
   // right bracket
-  let wRight = wX + matrixW_total + 8;
+  let wRight = wX + 10 + matrixW_total + 2;
   cpuCtx.beginPath();
   cpuCtx.moveTo(wRight - 4, matTopY - 2);
-  cpuCtx.lineTo(wRight, matTopY - 2);
-  cpuCtx.lineTo(wRight, matTopY + matrixH + 2);
+  cpuCtx.lineTo(wRight,     matTopY - 2);
+  cpuCtx.lineTo(wRight,     matTopY + matrixH + 2);
   cpuCtx.lineTo(wRight - 4, matTopY + matrixH + 2);
   cpuCtx.stroke();
 
   for (let r = 0; r < VEC_LEN; r++) {
     for (let c = 0; c < W_COLS; c++) {
-      let cx = wX + 8 + c * (CELL + GAP);
-      let cy = matTopY + r * (CELL + GAP);
+      let cx = wX + 10 + c * (CPU_CELL + CPU_GAP);
+      let cy = matTopY + r * (CPU_CELL + CPU_GAP);
       let isActive = c === curWcol && cpuStep >= 0;
 
       cpuCtx.fillStyle = isActive
         ? 'rgba(193,18,31,0.28)'
         : cpuDone.has(c) ? 'rgba(2,62,138,0.13)' : 'rgba(2,62,138,0.06)';
-      cpuCtx.beginPath(); cpuCtx.roundRect(cx, cy, CELL, CELL, 4); cpuCtx.fill();
+      cpuCtx.beginPath(); cpuCtx.roundRect(cx, cy, CPU_CELL, CPU_CELL, 4); cpuCtx.fill();
       if (isActive) {
         cpuCtx.strokeStyle = '#c1121f'; cpuCtx.lineWidth = 2; cpuCtx.stroke();
       }
-      cpuCtx.font = `${isActive ? 'bold ' : ''}9px JetBrains Mono`;
+      cpuCtx.font = `${isActive ? 'bold ' : ''}8px JetBrains Mono`;
       cpuCtx.fillStyle = isActive ? '#c1121f' : '#1a1a2e';
       cpuCtx.textAlign = 'center'; cpuCtx.textBaseline = 'middle';
-      cpuCtx.fillText(`w${r}${c}`, cx + CELL/2, cy + CELL/2);
+      cpuCtx.fillText(`w${r}${c}`, cx + CPU_CELL/2, cy + CPU_CELL/2);
     }
   }
 
@@ -577,32 +575,32 @@ function drawCPUFrame() {
 
   // ── Draw output vector (1 row, W_COLS cols) ──
   for (let c = 0; c < W_COLS; c++) {
-    let cx = outX + c * (CELL + GAP);
+    let cx = outX + c * (CPU_CELL + CPU_GAP);
     let cy = vecY;
     let isNow = c === curWcol && cpuStep >= 0;
     let isDone = cpuDone.has(c) || isNow;
     cpuCtx.fillStyle = isDone ? 'rgba(45,106,79,0.4)' : 'rgba(45,106,79,0.06)';
-    cpuCtx.beginPath(); cpuCtx.roundRect(cx, cy, CELL, CELL, 4); cpuCtx.fill();
+    cpuCtx.beginPath(); cpuCtx.roundRect(cx, cy, CPU_CELL, CPU_CELL, 4); cpuCtx.fill();
     if (isNow) { cpuCtx.strokeStyle = '#2d6a4f'; cpuCtx.lineWidth = 2; cpuCtx.stroke(); }
-    cpuCtx.font = `${isNow ? 'bold ' : ''}9px JetBrains Mono`;
+    cpuCtx.font = `${isNow ? 'bold ' : ''}8px JetBrains Mono`;
     cpuCtx.fillStyle = isDone ? '#2d6a4f' : '#bbb';
     cpuCtx.textAlign = 'center'; cpuCtx.textBaseline = 'middle';
-    cpuCtx.fillText(isDone ? `o${c}` : '·', cx + CELL/2, cy + CELL/2);
+    cpuCtx.fillText(isDone ? `o${c}` : '·', cx + CPU_CELL/2, cy + CPU_CELL/2);
   }
 
-  // ── Labels (above each element) ──
+  // ── Labels ──
   cpuCtx.font = '10px JetBrains Mono';
-  const labelY = usableTop - 4;
+  const labelY = usableTop - 6;
 
   cpuCtx.fillStyle = '#023e8a';
   cpuCtx.textAlign = 'center';
-  cpuCtx.fillText('TOKEN VECTOR  [1 × 5]', vX + vecW_total/2, labelY);
+  cpuCtx.fillText('TOKEN VECTOR [1×5]', vX + vecW_total/2, labelY);
 
   cpuCtx.fillStyle = '#c1121f';
-  cpuCtx.fillText('WEIGHT MATRIX  [5 × 6]  ← loaded from RAM each token', wX + 8 + matrixW_total/2, labelY);
+  cpuCtx.fillText('WEIGHT MATRIX [5×6]  ← loaded from RAM each token', wX + 10 + matrixW_total/2, labelY);
 
   cpuCtx.fillStyle = '#2d6a4f';
-  cpuCtx.fillText('OUTPUT  [1 × 6]', outX + outW_total/2, labelY);
+  cpuCtx.fillText('OUTPUT [1×6]', outX + outW_total/2, labelY);
 
   // ── Bottom annotations ──
   const annY = H - 30;
