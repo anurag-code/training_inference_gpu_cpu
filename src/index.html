@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CPU vs GPU — Visualizations</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .landing-hero {
+      text-align: center;
+      margin-bottom: 80px;
+    }
+
+    .landing-hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      margin-bottom: 12px;
+    }
+
+    .landing-subtitle {
+      color: var(--muted);
+      font-size: 1rem;
+      margin-bottom: 8px;
+    }
+
+    .landing-description {
+      font-size: 0.9rem;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 24px auto;
+      line-height: 1.8;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .card-link {
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card-link:hover {
+      transform: translateY(-8px);
+    }
+
+    .card-link:hover .card-content {
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+      border-color: var(--border);
+    }
+
+    .card-content {
+      background: var(--paper);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 48px 32px;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-content::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+    }
+
+    .card-gpu .card-content::before { background: var(--gpu); }
+    .card-cpu .card-content::before { background: var(--cpu); }
+
+    .card-icon {
+      font-size: 3.5rem;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-family: 'Unbounded', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .card-gpu .card-title { color: var(--gpu); }
+    .card-cpu .card-title { color: var(--cpu); }
+
+    .card-description {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+
+    .card-cta {
+      display: inline-block;
+      padding: 10px 24px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: all 0.2s ease;
+    }
+
+    .card-gpu .card-cta {
+      background: var(--gpu);
+      color: #fff;
+    }
+
+    .card-gpu .card-cta:hover {
+      background: #9b0014;
+      box-shadow: 0 4px 12px rgba(193, 18, 31, 0.3);
+    }
+
+    .card-cpu .card-cta {
+      background: var(--cpu);
+      color: #fff;
+    }
+
+    .card-cpu .card-cta:hover {
+      background: #012f6a;
+      box-shadow: 0 4px 12px rgba(2, 62, 138, 0.3);
+    }
+
+    .feature-list {
+      margin-top: 24px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .feature-item {
+      font-size: 0.78rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-item::before {
+      content: '✓';
+      color: var(--green);
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    @media (max-width: 768px) {
+      .card-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .card-content {
+        padding: 36px 24px;
+      }
+
+      .card-icon {
+        font-size: 3rem;
+      }
+
+      .card-title {
+        font-size: 1.2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="landing-hero">
+    <h1>CPU vs GPU</h1>
+    <p class="landing-subtitle">// interactive visualizations for deep learning</p>
+    <p class="landing-description">
+      Understand the fundamental differences between CPU and GPU computing through animated diagrams and detailed comparisons. Perfect for learning why GPUs excel at training and CPUs shine at inference.
+    </p>
+  </div>
+
+  <div class="card-grid">
+    <!-- Card 1: Matrix Operations -->
+    <a href="matrix_operations.html" class="card-link card-gpu">
+      <div class="card-content">
+        <div class="card-icon">📐</div>
+        <h2 class="card-title">Matrix Operations</h2>
+        <p class="card-description">
+          GPU Training vs CPU Inference with animated matrix multiplication
+        </p>
+        <div class="feature-list">
+          <div class="feature-item">Batch processing visualization</div>
+          <div class="feature-item">Parallel computation demo</div>
+          <div class="feature-item">Backpropagation breakdown</div>
+          <div class="feature-item">Interactive canvas animations</div>
+        </div>
+        <div style="margin-top: 24px;">
+          <span class="card-cta">Explore →</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- Card 2: CPU vs GPU Diagrams -->
+    <a href="cpu_gpu_diagrams.html" class="card-link card-cpu">
+      <div class="card-content">
+        <div class="card-icon">⚙️</div>
+        <h2 class="card-title">CPU vs GPU</h2>
+        <p class="card-description">
+          Core architecture, memory bandwidth, and performance comparison
+        </p>
+        <div class="feature-list">
+          <div class="feature-item">Core count comparison</div>
+          <div class="feature-item">Inference workflow</div>
+          <div class="feature-item">Memory bandwidth analysis</div>
+          <div class="feature-item">Training vs inference table</div>
+        </div>
+        <div style="margin-top: 24px;">
+          <span class="card-cta">Explore →</span>
+        </div>
+      </div>
+    </a>
+  </div>
+
+</div>
+</body>
+</html>

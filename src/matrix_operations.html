@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matrix Operations — GPU Training vs CPU Inference</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="page">
+
+<h1>Matrix Operations<br>GPU Training vs CPU Inference</h1>
+<p class="subtitle">// making the math concrete</p>
+
+<!-- ═══════════════════════════════════════════
+     SECTION A: GPU — TRAINING
+═══════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-header">
+    <span class="sec-chip chip-gpu">GPU</span>
+    <h2>Training — Massive Parallel Matrix Multiplication</h2>
+  </div>
+
+  <p style="font-size:0.78rem;line-height:1.9;color:#333;margin-bottom:28px;">
+    During training, the model processes an entire <strong>batch</strong> of examples at once.
+    For each layer, it computes <strong>Output = Input × Weights</strong> — but the Input is not
+    one vector, it's a whole matrix (one row per sample in the batch).
+    Every cell in the output matrix is an independent dot product — perfect for GPU parallelism.
+  </p>
+
+  <!-- Animated canvas: GPU matmul -->
+  <div class="canvas-wrap">
+    <div class="canvas-title">▶ GPU: Batch Matrix Multiplication (click "Animate")</div>
+    <div class="controls">
+      <button class="btn btn-gpu" onclick="startGPU()">▶ Animate GPU</button>
+      <button class="btn btn-outline" onclick="resetGPU()">↺ Reset</button>
+    </div>
+    <canvas id="gpuCanvas" width="800" height="320"></canvas>
+  </div>
+
+  <!-- Parallel cores explanation -->
+  <div class="parallel-grid">
+    <div class="parallel-title">// each GPU core handles one dot product simultaneously</div>
+    <div class="simultaneous-wrap">
+      <div class="sim-line"></div>
+      <div class="sim-badge">ALL happening at the same time ↓</div>
+      <div class="sim-line"></div>
+    </div>
+    <div class="parallel-rows">
+      <div class="p-row">
+        <div class="p-core">C0</div>
+        <span class="p-arrow">→</span>
+        <span class="p-calc">row₀ · col₀ = 0.2×0.5 + 0.8×0.3 + … </span>
+        <span class="p-arrow">→</span>
+        <span class="p-result">out[0,0] = 0.41</span>
+        <span class="p-time-badge">t=1</span>
+      </div>
+      <div class="p-row">
+        <div class="p-core" style="animation-delay:0.1s">C1</div>
+        <span class="p-arrow">→</span>
+        <span class="p-calc">row₀ · col₁ = 0.2×0.1 + 0.8×0.9 + … </span>
+        <span class="p-arrow">→</span>
+        <span class="p-result">out[0,1] = 0.74</span>
+        <span class="p-time-badge">t=1</span>
+      </div>
+      <div class="p-row">
+        <div class="p-core" style="animation-delay:0.2s">C2</div>
+        <span class="p-arrow">→</span>
+        <span class="p-calc">row₁ · col₀ = 0.4×0.5 + 0.6×0.3 + … </span>
+        <span class="p-arrow">→</span>
+        <span class="p-result">out[1,0] = 0.38</span>
+        <span class="p-time-badge">t=1</span>
+      </div>
+      <div class="p-row">
+        <div class="p-core" style="animation-delay:0.3s">C3</div>
+        <span class="p-arrow">→</span>
+        <span class="p-calc">row₁ · col₁ = 0.4×0.1 + 0.6×0.9 + … </span>
+        <span class="p-arrow">→</span>
+        <span class="p-result">out[1,1] = 0.58</span>
+        <span class="p-time-badge">t=1</span>
+      </div>
+      <div class="p-row" style="opacity:0.5">
+        <div class="p-core" style="animation-delay:0.4s;background:#888">C…</div>
+        <span class="p-arrow">→</span>
+        <span class="p-calc" style="color:var(--muted)">… thousands more cores doing their cell …</span>
+        <span class="p-arrow">→</span>
+        <span class="p-result" style="color:var(--muted)">out[…] = …</span>
+        <span class="p-time-badge" style="color:var(--muted)">t=1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backprop -->
+  <div class="backprop-flow">
+    <div class="parallel-title">// training also does backpropagation — even more parallel matrix ops</div>
+    <div class="bp-row">
+      <div class="bp-label">Forward pass</div>
+      <div class="bp-bar-wrap">
+        <div class="bp-bar" style="width:60%;background:rgba(193,18,31,0.15);color:var(--gpu);animation-delay:0.2s">
+          Output = Input × W &nbsp;&nbsp;&nbsp; [batch × out_dim]
+        </div>
+      </div>
+      <div class="bp-val" style="color:var(--gpu)">∝ batch</div>
+    </div>
+    <div class="bp-row">
+      <div class="bp-label">Loss grad</div>
+      <div class="bp-bar-wrap">
+        <div class="bp-bar" style="width:40%;background:rgba(247,127,0,0.12);color:var(--accent);animation-delay:0.4s">
+          dL/dOutput &nbsp; [batch × out_dim]
+        </div>
+      </div>
+      <div class="bp-val" style="color:var(--accent)">∝ batch</div>
+    </div>
+    <div class="bp-row">
+      <div class="bp-label">Weight grad</div>
+      <div class="bp-bar-wrap">
+        <div class="bp-bar" style="width:70%;background:rgba(45,106,79,0.1);color:var(--green);animation-delay:0.6s">
+          dL/dW = Inputᵀ × dL/dOutput &nbsp; [in_dim × out_dim]
+        </div>
+      </div>
+      <div class="bp-val" style="color:var(--green)">parallel ✓</div>
+    </div>
+    <div class="bp-row">
+      <div class="bp-label">Input grad</div>
+      <div class="bp-bar-wrap">
+        <div class="bp-bar" style="width:55%;background:rgba(2,62,138,0.08);color:var(--cpu);animation-delay:0.8s">
+          dL/dInput = dL/dOutput × Wᵀ &nbsp; [batch × in_dim]
+        </div>
+      </div>
+      <div class="bp-val" style="color:var(--cpu)">parallel ✓</div>
+    </div>
+  </div>
+
+  <div class="insight insight-gpu">
+    <strong>Why GPU wins at training:</strong> Every cell of every matrix can be computed independently and simultaneously.
+    A batch of 32 samples × a layer of 4096 neurons = <strong>131,072 dot products</strong> — all at once.
+    The GPU's thousands of cores are fully occupied. No core waits for another.
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION B: CPU — INFERENCE
+═══════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-header">
+    <span class="sec-chip chip-cpu">CPU</span>
+    <h2>Inference — Vector × Matrix, One Token at a Time</h2>
+  </div>
+
+  <p style="font-size:0.78rem;line-height:1.9;color:#333;margin-bottom:28px;">
+    During inference, there is no batch — just <strong>one token</strong>.
+    So the "Input" shrinks from a fat matrix down to a single <strong>row vector</strong>.
+    The operation becomes <strong>vector × matrix</strong> (not matrix × matrix).
+    This means far fewer operations, and critically, far less parallelism available.
+  </p>
+
+  <div class="canvas-wrap">
+    <div class="canvas-title">▶ CPU: Vector × Matrix — One Token Inference (click "Animate")</div>
+    <div class="controls">
+      <button class="btn btn-cpu" onclick="startCPU()">▶ Animate CPU</button>
+      <button class="btn btn-outline" onclick="resetCPU()">↺ Reset</button>
+    </div>
+    <canvas id="cpuCanvas" width="800" height="320"></canvas>
+  </div>
+
+  <!-- Sequential core usage -->
+  <div class="sequential-wrap">
+    <div class="parallel-title">// inference is sequential — what one CPU core does per token</div>
+    <div class="seq-timeline">
+
+      <div class="seq-step" style="animation-delay:0.1s">
+        <div class="seq-dot"></div>
+        <div class="seq-content">
+          <div class="seq-step-label">Step 1 — memory</div>
+          <div class="seq-op">LOAD weight column 0 from RAM → cache</div>
+          <div class="seq-note">Must read billions of floats for the full model. Dominates total time.</div>
+        </div>
+        <div class="seq-cost cost-high">⚠ expensive</div>
+      </div>
+
+      <div class="seq-step" style="animation-delay:0.25s">
+        <div class="seq-dot"></div>
+        <div class="seq-content">
+          <div class="seq-step-label">Step 2 — compute</div>
+          <div class="seq-op">dot(token_vec, weight_col_0) → output[0]</div>
+          <div class="seq-note">Tiny multiply-accumulate loop. Finishes in nanoseconds.</div>
+        </div>
+        <div class="seq-cost cost-low">✓ cheap</div>
+      </div>
+
+      <div class="seq-step" style="animation-delay:0.4s">
+        <div class="seq-dot"></div>
+        <div class="seq-content">
+          <div class="seq-step-label">Step 3 — memory</div>
+          <div class="seq-op">LOAD weight column 1 from RAM → cache</div>
+          <div class="seq-note">Next column. Memory stall again.</div>
+        </div>
+        <div class="seq-cost cost-high">⚠ expensive</div>
+      </div>
+
+      <div class="seq-step" style="animation-delay:0.55s">
+        <div class="seq-dot"></div>
+        <div class="seq-content">
+          <div class="seq-step-label">Step 4 — compute</div>
+          <div class="seq-op">dot(token_vec, weight_col_1) → output[1]</div>
+          <div class="seq-note">Again, instant math after slow memory load.</div>
+        </div>
+        <div class="seq-cost cost-low">✓ cheap</div>
+      </div>
+
+      <div class="seq-step" style="animation-delay:0.7s;opacity:0.6">
+        <div class="seq-dot" style="background:var(--muted)"></div>
+        <div class="seq-content">
+          <div class="seq-step-label">… repeat for all columns …</div>
+          <div class="seq-op">LOAD → DOT → LOAD → DOT → …</div>
+          <div class="seq-note">The pattern: 95% memory, 5% math. CPU handles this naturally.</div>
+        </div>
+        <div class="seq-cost" style="background:rgba(138,138,154,0.1);color:var(--muted);border:1px solid var(--border)">…</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="insight insight-cpu">
+    <strong>Why CPU is suitable for inference:</strong> With only one token (one vector), there's no big matrix to parallelize over.
+    The operation is dominated by <strong>loading weights from memory</strong>, not by math.
+    CPUs stream memory efficiently, have large L3 caches, and can access cheap abundant RAM —
+    perfectly matched to this "read a lot, compute a little" pattern. GPU cores would sit 99% idle.
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION C: SIDE BY SIDE
+═══════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-header">
+    <h2>The Core Difference — At a Glance</h2>
+  </div>
+
+  <div class="final-compare">
+    <div class="fc-card">
+      <div class="fc-header gpu-head">GPU — Training</div>
+      <div class="fc-body">
+        <div class="fc-item"><span class="fc-icon">📐</span><span><strong>Operation:</strong> Matrix × Matrix<br><span style="color:var(--muted);font-size:0.68rem">[batch × in] × [in × out] = [batch × out]</span></span></div>
+        <div class="fc-item"><span class="fc-icon">⚡</span><span><strong>Parallelism:</strong> Every output cell is independent → 10,000s of cores fire simultaneously</span></div>
+        <div class="fc-item"><span class="fc-icon">🔄</span><span><strong>Bottleneck:</strong> FLOPS (math) — cores are the limit, not memory</span></div>
+        <div class="fc-item"><span class="fc-icon">📦</span><span><strong>Batch = 32 samples:</strong> 32× more work, but same time — cores absorb it all</span></div>
+        <div class="fc-item"><span class="fc-icon">↩️</span><span><strong>Backprop:</strong> More matrix multiplications, all parallelizable — GPU keeps winning</span></div>
+      </div>
+    </div>
+    <div class="fc-card">
+      <div class="fc-header cpu-head">CPU — Inference</div>
+      <div class="fc-body">
+        <div class="fc-item"><span class="fc-icon">📏</span><span><strong>Operation:</strong> Vector × Matrix<br><span style="color:var(--muted);font-size:0.68rem">[1 × in] × [in × out] = [1 × out]</span></span></div>
+        <div class="fc-item"><span class="fc-icon">🐢</span><span><strong>Parallelism:</strong> Only "out" dot products — much less. GPU cores would mostly idle.</span></div>
+        <div class="fc-item"><span class="fc-icon">💾</span><span><strong>Bottleneck:</strong> Memory bandwidth — weights must be loaded for every single token</span></div>
+        <div class="fc-item"><span class="fc-icon">🔁</span><span><strong>Sequential:</strong> Token N+1 cannot start until token N is done. No way to batch time.</span></div>
+        <div class="fc-item"><span class="fc-icon">🏦</span><span><strong>RAM advantage:</strong> CPUs access hundreds of GB of cheap RAM — fits large models easily</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /page -->
+
+<script>
+// ─── GPU Canvas Animation ───
+const gpuC = document.getElementById('gpuCanvas');
+const gpuCtx = gpuC.getContext('2d');
+let gpuAnim = null;
+
+const ROWS_A = 4, COLS_A = 5; // Input batch: 4 samples × 5 features
+const ROWS_B = 5, COLS_B = 4; // Weights: 5×4
+const ROWS_C = 4, COLS_C = 4; // Output: 4×4
+
+const CELL = 42, GAP = 4, PAD = 16;
+const matW = (n) => n * (CELL + GAP) - GAP + PAD*2;
+const matH = (n) => n * (CELL + GAP) - GAP + PAD*2;
+
+function drawMatrix(ctx, x, y, rows, cols, colorFn, labels, highlightRow, highlightCol, alpha=1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // bracket left
+  ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(x+8, y+4); ctx.lineTo(x+4, y+4); ctx.lineTo(x+4, y+matH(rows)-4); ctx.lineTo(x+8, y+matH(rows)-4);
+  ctx.stroke();
+  // bracket right
+  let rw = matW(cols);
+  ctx.beginPath();
+  ctx.moveTo(x+rw-8, y+4); ctx.lineTo(x+rw-4, y+4); ctx.lineTo(x+rw-4, y+matH(rows)-4); ctx.lineTo(x+rw-8, y+matH(rows)-4);
+  ctx.stroke();
+
+  for (let r=0; r<rows; r++) {
+    for (let c=0; c<cols; c++) {
+      let cx = x + PAD + c*(CELL+GAP);
+      let cy = y + PAD + r*(CELL+GAP);
+      let isHL = (r === highlightRow || c === highlightCol) && highlightRow !== undefined;
+      let isActive = r === highlightRow && c === highlightCol && highlightRow !== undefined;
+
+      ctx.fillStyle = colorFn(r, c, isHL, isActive);
+      ctx.beginPath();
+      ctx.roundRect(cx, cy, CELL, CELL, 4);
+      ctx.fill();
+      if (isActive) {
+        ctx.strokeStyle = '#c1121f'; ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = isActive ? '#c1121f' : '#1a1a2e';
+      ctx.font = `${isActive?'bold ':''}10px JetBrains Mono`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      let label = labels ? labels(r,c) : `${r}${c}`;
+      ctx.fillText(label, cx+CELL/2, cy+CELL/2);
+    }
+  }
+  ctx.restore();
+}
+
+function gpuColorA(r,c,hl,act) {
+  if (act) return 'rgba(193,18,31,0.35)';
+  if (hl) return 'rgba(193,18,31,0.18)';
+  return 'rgba(193,18,31,0.08)';
+}
+function gpuColorB(r,c,hl,act) {
+  if (act) return 'rgba(2,62,138,0.35)';
+  if (hl) return 'rgba(2,62,138,0.18)';
+  return 'rgba(2,62,138,0.08)';
+}
+function gpuColorC(r,c,hl,act) {
+  if (act) return 'rgba(45,106,79,0.5)';
+  return 'rgba(45,106,79,0.1)';
+}
+
+let gpuStep = -1;
+let gpuCompleted = new Set();
+
+function drawGPUFrame() {
+  const W = gpuC.width, H = gpuC.height;
+  const dpr = window.devicePixelRatio || 1;
+  gpuCtx.clearRect(0,0,W,H);
+  gpuCtx.fillStyle = '#faf7f2';
+  gpuCtx.fillRect(0,0,W,H);
+
+  // positions
+  const aX = 20, aY = 40;
+  const opX = aX + matW(COLS_A) + 20;
+  const bX = opX + 30;
+  const eq = bX + matW(COLS_B) + 16;
+  const cX = eq + 28;
+
+  const row = gpuStep >= 0 ? Math.floor(gpuStep / COLS_C) : undefined;
+  const col = gpuStep >= 0 ? gpuStep % COLS_C : undefined;
+
+  // draw A (input batch)
+  drawMatrix(gpuCtx, aX, aY, ROWS_A, COLS_A, gpuColorA,
+    (r,c) => `x${r}${c}`,
+    row, undefined);
+
+  // × sign
+  gpuCtx.font = 'bold 28px Unbounded';
+  gpuCtx.fillStyle = '#8a8a9a';
+  gpuCtx.textAlign = 'center';
+  gpuCtx.fillText('×', opX + 15, aY + matH(ROWS_A)/2 + 4);
+
+  // draw B (weights)
+  drawMatrix(gpuCtx, bX, aY, ROWS_B, COLS_B, gpuColorB,
+    (r,c) => `w${r}${c}`,
+    undefined, col);
+
+  // = sign
+  gpuCtx.fillText('=', eq + 14, aY + matH(ROWS_C)/2 + 4);
+
+  // draw C (output) — show completed cells
+  for (let r=0; r<ROWS_C; r++) {
+    for (let c=0; c<COLS_C; c++) {
+      let cx2 = cX + PAD + c*(CELL+GAP);
+      let cy2 = aY + PAD + r*(CELL+GAP);
+      let key = r*COLS_C+c;
+      let isNow = r===row && c===col;
+      let isDone = gpuCompleted.has(key) || isNow;
+
+      gpuCtx.fillStyle = isDone ? 'rgba(45,106,79,0.45)' : 'rgba(45,106,79,0.06)';
+      gpuCtx.beginPath();
+      gpuCtx.roundRect(cx2, cy2, CELL, CELL, 4);
+      gpuCtx.fill();
+
+      if (isNow) {
+        gpuCtx.strokeStyle = '#2d6a4f'; gpuCtx.lineWidth = 2;
+        gpuCtx.stroke();
+      }
+
+      gpuCtx.font = `${isNow?'bold ':''}9px JetBrains Mono`;
+      gpuCtx.fillStyle = isDone ? '#2d6a4f' : '#ccc';
+      gpuCtx.textAlign = 'center'; gpuCtx.textBaseline = 'middle';
+      gpuCtx.fillText(isDone ? `o${r}${c}` : '·', cx2+CELL/2, cy2+CELL/2);
+    }
+  }
+
+  // labels
+  gpuCtx.font = '11px JetBrains Mono';
+  gpuCtx.fillStyle = '#c1121f';
+  gpuCtx.textAlign = 'center';
+  gpuCtx.fillText('INPUT BATCH', aX + matW(COLS_A)/2, aY - 16);
+  gpuCtx.fillText('[4 samples × 5 features]', aX + matW(COLS_A)/2, aY - 4);
+
+  gpuCtx.fillStyle = '#023e8a';
+  gpuCtx.fillText('WEIGHTS', bX + matW(COLS_B)/2, aY - 16);
+  gpuCtx.fillText('[5 in × 4 out]', bX + matW(COLS_B)/2, aY - 4);
+
+  gpuCtx.fillStyle = '#2d6a4f';
+  gpuCtx.fillText('OUTPUT', cX + matW(COLS_C)/2, aY - 16);
+  gpuCtx.fillText('[4 samples × 4 neurons]', cX + matW(COLS_C)/2, aY - 4);
+
+  // parallel annotation
+  const total = ROWS_C * COLS_C;
+  const done = gpuCompleted.size + (gpuStep>=0?1:0);
+
+  if (gpuStep >= 0) {
+    gpuCtx.fillStyle = '#1a1a2e';
+    gpuCtx.font = 'bold 12px JetBrains Mono';
+    gpuCtx.textAlign = 'left';
+    let note = gpuStep < total
+      ? `GPU: ${total} cores fire simultaneously → all ${total} outputs at t=1`
+      : `✓ All ${total} output cells computed in parallel — done!`;
+    gpuCtx.fillText(note, 20, H - 28);
+
+    gpuCtx.fillStyle = '#c1121f';
+    gpuCtx.font = '11px JetBrains Mono';
+    gpuCtx.fillText(`(animating sequentially to show the concept — real GPU does all at once)`, 20, H - 12);
+  } else {
+    gpuCtx.fillStyle = '#8a8a9a';
+    gpuCtx.font = '12px JetBrains Mono';
+    gpuCtx.textAlign = 'left';
+    gpuCtx.fillText('Press "Animate GPU" to see parallel matrix multiplication', 20, H-16);
+  }
+}
+
+function startGPU() {
+  if (gpuAnim) return;
+  gpuStep = 0;
+  gpuCompleted = new Set();
+  const total = ROWS_C * COLS_C;
+  drawGPUFrame();
+  gpuAnim = setInterval(() => {
+    if (gpuStep >= 0) gpuCompleted.add(Math.floor(gpuStep/COLS_C)*COLS_C + gpuStep%COLS_C);
+
+    // In real GPU all happen at once — show fast
+    gpuStep++;
+    drawGPUFrame();
+    if (gpuStep >= total) {
+      clearInterval(gpuAnim);
+      gpuAnim = null;
+    }
+  }, 180);
+}
+
+function resetGPU() {
+  if (gpuAnim) { clearInterval(gpuAnim); gpuAnim = null; }
+  gpuStep = -1;
+  gpuCompleted = new Set();
+  drawGPUFrame();
+}
+
+// ─── CPU Canvas Animation ───
+const cpuC = document.getElementById('cpuCanvas');
+const cpuCtx = cpuC.getContext('2d');
+let cpuAnim = null;
+let cpuStep = -1;
+let cpuDone = new Set();
+
+const VEC_LEN = 5;  // input vector size
+const W_COLS = 6;   // weight columns
+
+function drawCPUFrame() {
+  const W = cpuC.width, H = cpuC.height;
+  cpuCtx.clearRect(0,0,W,H);
+  cpuCtx.fillStyle = '#faf7f2';
+  cpuCtx.fillRect(0,0,W,H);
+
+  const curWcol = cpuStep;
+
+  // Layout: all elements share the same vertical center
+  // Weight matrix is VEC_LEN rows tall — compute its total height
+  const matrixH = VEC_LEN * (CELL + GAP) - GAP;
+  const matrixW_total = W_COLS * (CELL + GAP) - GAP;
+  const vecW_total = VEC_LEN * (CELL + GAP) - GAP;
+  const outW_total = W_COLS * (CELL + GAP) - GAP;
+
+  // Reserve top 36px for labels, bottom 48px for annotations
+  const usableTop = 50;
+  const usableH = H - usableTop - 50;
+  const centerY = usableTop + usableH / 2;
+
+  // Vector is 1 row tall — center it on centerY
+  const vecY = centerY - CELL / 2;
+
+  // Weight matrix — center vertically on centerY
+  const matTopY = centerY - matrixH / 2;
+
+  // X positions
+  const vX = 16;
+  const opX = vX + vecW_total + 18;
+  const wX = opX + 28;
+  const eqX = wX + matrixW_total + PAD*2 + 18;
+  const outX = eqX + 28;
+
+  // ── Draw input vector (1 row, VEC_LEN cols) ──
+  for (let i = 0; i < VEC_LEN; i++) {
+    let cx = vX + i * (CELL + GAP);
+    let cy = vecY;
+    cpuCtx.fillStyle = 'rgba(2,62,138,0.15)';
+    cpuCtx.beginPath(); cpuCtx.roundRect(cx, cy, CELL, CELL, 4); cpuCtx.fill();
+    cpuCtx.strokeStyle = 'rgba(2,62,138,0.4)'; cpuCtx.lineWidth = 1;
+    cpuCtx.stroke();
+    cpuCtx.font = '10px JetBrains Mono';
+    cpuCtx.fillStyle = '#023e8a';
+    cpuCtx.textAlign = 'center'; cpuCtx.textBaseline = 'middle';
+    cpuCtx.fillText(`t${i}`, cx + CELL/2, cy + CELL/2);
+  }
+
+  // ── × sign — vertically centered ──
+  cpuCtx.font = 'bold 26px Unbounded';
+  cpuCtx.fillStyle = '#8a8a9a';
+  cpuCtx.textAlign = 'center';
+  cpuCtx.fillText('×', opX + 14, centerY + 8);
+
+  // ── Draw weight matrix (VEC_LEN rows × W_COLS cols) ──
+  // Add brackets
+  cpuCtx.strokeStyle = '#1a1a2e'; cpuCtx.lineWidth = 2.5;
+  // left bracket
+  cpuCtx.beginPath();
+  cpuCtx.moveTo(wX + 6, matTopY - 2);
+  cpuCtx.lineTo(wX + 2, matTopY - 2);
+  cpuCtx.lineTo(wX + 2, matTopY + matrixH + 2);
+  cpuCtx.lineTo(wX + 6, matTopY + matrixH + 2);
+  cpuCtx.stroke();
+  // right bracket
+  let wRight = wX + matrixW_total + 8;
+  cpuCtx.beginPath();
+  cpuCtx.moveTo(wRight - 4, matTopY - 2);
+  cpuCtx.lineTo(wRight, matTopY - 2);
+  cpuCtx.lineTo(wRight, matTopY + matrixH + 2);
+  cpuCtx.lineTo(wRight - 4, matTopY + matrixH + 2);
+  cpuCtx.stroke();
+
+  for (let r = 0; r < VEC_LEN; r++) {
+    for (let c = 0; c < W_COLS; c++) {
+      let cx = wX + 8 + c * (CELL + GAP);
+      let cy = matTopY + r * (CELL + GAP);
+      let isActive = c === curWcol && cpuStep >= 0;
+
+      cpuCtx.fillStyle = isActive
+        ? 'rgba(193,18,31,0.28)'
+        : cpuDone.has(c) ? 'rgba(2,62,138,0.13)' : 'rgba(2,62,138,0.06)';
+      cpuCtx.beginPath(); cpuCtx.roundRect(cx, cy, CELL, CELL, 4); cpuCtx.fill();
+      if (isActive) {
+        cpuCtx.strokeStyle = '#c1121f'; cpuCtx.lineWidth = 2; cpuCtx.stroke();
+      }
+      cpuCtx.font = `${isActive ? 'bold ' : ''}9px JetBrains Mono`;
+      cpuCtx.fillStyle = isActive ? '#c1121f' : '#1a1a2e';
+      cpuCtx.textAlign = 'center'; cpuCtx.textBaseline = 'middle';
+      cpuCtx.fillText(`w${r}${c}`, cx + CELL/2, cy + CELL/2);
+    }
+  }
+
+  // ── = sign — vertically centered ──
+  cpuCtx.font = 'bold 26px Unbounded';
+  cpuCtx.fillStyle = '#8a8a9a';
+  cpuCtx.textAlign = 'center';
+  cpuCtx.fillText('=', eqX + 14, centerY + 8);
+
+  // ── Draw output vector (1 row, W_COLS cols) ──
+  for (let c = 0; c < W_COLS; c++) {
+    let cx = outX + c * (CELL + GAP);
+    let cy = vecY;
+    let isNow = c === curWcol && cpuStep >= 0;
+    let isDone = cpuDone.has(c) || isNow;
+    cpuCtx.fillStyle = isDone ? 'rgba(45,106,79,0.4)' : 'rgba(45,106,79,0.06)';
+    cpuCtx.beginPath(); cpuCtx.roundRect(cx, cy, CELL, CELL, 4); cpuCtx.fill();
+    if (isNow) { cpuCtx.strokeStyle = '#2d6a4f'; cpuCtx.lineWidth = 2; cpuCtx.stroke(); }
+    cpuCtx.font = `${isNow ? 'bold ' : ''}9px JetBrains Mono`;
+    cpuCtx.fillStyle = isDone ? '#2d6a4f' : '#bbb';
+    cpuCtx.textAlign = 'center'; cpuCtx.textBaseline = 'middle';
+    cpuCtx.fillText(isDone ? `o${c}` : '·', cx + CELL/2, cy + CELL/2);
+  }
+
+  // ── Labels (above each element) ──
+  cpuCtx.font = '10px JetBrains Mono';
+  const labelY = usableTop - 4;
+
+  cpuCtx.fillStyle = '#023e8a';
+  cpuCtx.textAlign = 'center';
+  cpuCtx.fillText('TOKEN VECTOR  [1 × 5]', vX + vecW_total/2, labelY);
+
+  cpuCtx.fillStyle = '#c1121f';
+  cpuCtx.fillText('WEIGHT MATRIX  [5 × 6]  ← loaded from RAM each token', wX + 8 + matrixW_total/2, labelY);
+
+  cpuCtx.fillStyle = '#2d6a4f';
+  cpuCtx.fillText('OUTPUT  [1 × 6]', outX + outW_total/2, labelY);
+
+  // ── Bottom annotations ──
+  const annY = H - 30;
+  cpuCtx.textAlign = 'left';
+  if (cpuStep >= 0 && cpuStep < W_COLS) {
+    cpuCtx.fillStyle = '#1a1a2e';
+    cpuCtx.font = 'bold 11px JetBrains Mono';
+    cpuCtx.fillText(`⚠ LOAD column ${cpuStep} from RAM → dot product → output[${cpuStep}]`, 16, annY);
+    cpuCtx.fillStyle = '#c1121f';
+    cpuCtx.font = '10px JetBrains Mono';
+    cpuCtx.fillText(`Pattern: LOAD (slow) → DOT (fast) → LOAD (slow) → DOT (fast) → …  Memory is the bottleneck`, 16, annY + 16);
+  } else if (cpuStep >= W_COLS) {
+    cpuCtx.fillStyle = '#2d6a4f';
+    cpuCtx.font = 'bold 11px JetBrains Mono';
+    cpuCtx.fillText(`✓ Token processed. For the next token, the entire weight matrix must be loaded again.`, 16, annY + 8);
+  } else {
+    cpuCtx.fillStyle = '#8a8a9a';
+    cpuCtx.font = '11px JetBrains Mono';
+    cpuCtx.fillText('Press "Animate CPU" — watch sequential column loading: LOAD → DOT → LOAD → DOT …', 16, annY + 8);
+  }
+}
+
+function startCPU() {
+  if (cpuAnim) return;
+  cpuStep = 0;
+  cpuDone = new Set();
+  drawCPUFrame();
+  cpuAnim = setInterval(() => {
+    if (cpuStep > 0) cpuDone.add(cpuStep-1);
+    cpuStep++;
+    drawCPUFrame();
+    if (cpuStep > W_COLS) {
+      clearInterval(cpuAnim);
+      cpuAnim = null;
+    }
+  }, 700);
+}
+
+function resetCPU() {
+  if (cpuAnim) { clearInterval(cpuAnim); cpuAnim = null; }
+  cpuStep = -1;
+  cpuDone = new Set();
+  drawCPUFrame();
+}
+
+// Initial draws
+drawGPUFrame();
+drawCPUFrame();
+</script>
+
+</body>
+</html>

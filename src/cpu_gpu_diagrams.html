@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CPU vs GPU — Inference & Training</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="cpu_gpu_styles.css">
+</head>
+<body>
+
+<h1>CPU vs GPU</h1>
+<p class="subtitle">// why each processor fits a different deep learning task</p>
+
+<!-- ── SECTION 1: Cores ── -->
+<div class="section">
+  <p class="section-label">Diagram 01</p>
+  <h2 class="section-title">How Many Cores?</h2>
+
+  <div class="cores-grid">
+    <div class="core-box cpu">
+      <h3>CPU</h3>
+      <p>Few cores, each very powerful.<br>Built for complex sequential tasks.</p>
+      <div class="cores-visual" id="cpu-cores"></div>
+    </div>
+    <div class="core-box gpu">
+      <h3>GPU</h3>
+      <p>Thousands of simple cores.<br>Built for doing one thing in parallel.</p>
+      <div class="cores-visual" id="gpu-cores"></div>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <strong>Key idea:</strong> A CPU core is like a genius who can solve any problem. A GPU core is like a factory worker who does one simple job — but you have 10,000 of them working simultaneously.
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ── SECTION 2: Inference Flow ── -->
+<div class="section">
+  <p class="section-label">Diagram 02</p>
+  <h2 class="section-title">What Happens at Inference?</h2>
+
+  <div class="inference-flow">
+    <div class="flow-steps">
+
+      <div class="flow-step">
+        <div class="step-label" style="color:var(--accent)">STEP 1<br>Load weights</div>
+        <div>
+          <div class="step-bar-wrap">
+            <div class="step-bar bar-memory">LOADING BILLIONS OF WEIGHTS FROM MEMORY…</div>
+          </div>
+          <div class="step-annotation" style="margin-top:8px">
+            Extremely expensive — gigabytes of data moved every token
+            <span class="bottleneck-badge">⚠ BOTTLENECK</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-label" style="color:var(--green)">STEP 2<br>Pick 1 token</div>
+        <div>
+          <div class="step-bar-wrap">
+            <div class="step-bar bar-math">math</div>
+            <span class="step-annotation">Tiny computation relative to the data loaded</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-label" style="color:var(--cpu)">STEP 3<br>Repeat…</div>
+        <div>
+          <div class="step-bar-wrap">
+            <div class="step-bar bar-repeat">LOAD ALL WEIGHTS AGAIN FOR NEXT TOKEN…</div>
+          </div>
+          <div class="step-annotation" style="margin-top:8px">Sequential — cannot do token N+1 before token N</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="highlight-box" style="background:rgba(244,162,97,0.07);border-color:rgba(244,162,97,0.3);color:var(--cpu)">
+    <strong>Conclusion:</strong> Inference is <strong>memory-bound</strong>, not compute-bound. You spend 95% of time moving data, 5% doing math. The GPU's massive parallel compute cores sit mostly idle — the CPU's sequential memory streaming is a better fit here.
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ── SECTION 3: Memory Bandwidth ── -->
+<div class="section">
+  <p class="section-label">Diagram 03</p>
+  <h2 class="section-title">Memory Bandwidth — The Real Bottleneck</h2>
+
+  <div class="pipe-diagram">
+    <p style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--muted);margin-bottom:28px;">How fast can each processor read data from memory? (GB/s)</p>
+
+    <div class="pipe-row">
+      <div class="pipe-label cpu">CPU</div>
+      <div class="pipe-track">
+        <div class="pipe-fill pipe-cpu-fill">~80 GB/s</div>
+      </div>
+      <div class="pipe-unit">~50–100 GB/s</div>
+    </div>
+
+    <div class="pipe-row">
+      <div class="pipe-label gpu">GPU</div>
+      <div class="pipe-track">
+        <div class="pipe-fill pipe-gpu-fill">~3 TB/s (HBM)</div>
+      </div>
+      <div class="pipe-unit">~1–3 TB/s</div>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <strong>Wait — GPU wins on bandwidth too?</strong> Yes, but remember: inference is sequential. Even with a wider pipe, you're still sending one truck at a time. The CPU's more moderate bandwidth is sufficient for sequential token generation, and CPUs can use cheap system RAM (large capacity, low cost) instead of expensive VRAM.
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ── SECTION 4: Training vs Inference ── -->
+<div class="section">
+  <p class="section-label">Diagram 04</p>
+  <h2 class="section-title">Training vs Inference — Who Wins?</h2>
+
+  <div class="compare-grid">
+
+    <div class="compare-card cpu-card">
+      <div class="compare-header">
+        <h3>CPU — Inference ✓</h3>
+        <span style="color:var(--muted)">sequential · memory-bound · one token at a time</span>
+      </div>
+      <div class="compare-body">
+        <div class="metric-row">
+          <span class="metric-name">Workload type</span>
+          <span class="metric-val val-good">Sequential</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">Parallelism needed</span>
+          <span class="metric-val val-good">None</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">Main bottleneck</span>
+          <span class="metric-val val-mid">Memory R/W</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">RAM capacity</span>
+          <span class="metric-val val-good">Huge (cheap)</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">Compute cores used</span>
+          <span class="metric-val val-mid">Moderate</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">Cost efficiency</span>
+          <span class="metric-val val-good">High</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="compare-card gpu-card">
+      <div class="compare-header">
+        <h3>GPU — Training ✓</h3>
+        <span style="color:var(--muted)">parallel · compute-bound · entire batch at once</span>
+      </div>
+      <div class="compare-body">
+        <div class="metric-row">
+          <span class="metric-name">Workload type</span>
+          <span class="metric-val val-good">Parallel</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">Parallelism needed</span>
+          <span class="metric-val val-good">Massive</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">Main bottleneck</span>
+          <span class="metric-val val-mid">FLOPS (math)</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">VRAM capacity</span>
+          <span class="metric-val val-bad">Limited (expensive)</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">Compute cores used</span>
+          <span class="metric-val val-good">Fully saturated</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">Cost efficiency</span>
+          <span class="metric-val val-mid">High for training</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ── SECTION 5: Summary ── -->
+<div class="section">
+  <p class="section-label">Diagram 05</p>
+  <h2 class="section-title">At a Glance</h2>
+
+  <table class="summary-table">
+    <thead>
+      <tr>
+        <th>Task</th>
+        <th>Bound by</th>
+        <th>Tokens processed</th>
+        <th>Gradients?</th>
+        <th>Best processor</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Inference</strong> — generating text</td>
+        <td>Memory bandwidth</td>
+        <td>One at a time</td>
+        <td>No</td>
+        <td><span class="tag tag-cpu">CPU</span></td>
+      </tr>
+      <tr>
+        <td><strong>Training</strong> — learning weights</td>
+        <td>Compute (FLOPS)</td>
+        <td>Entire batch</td>
+        <td>Yes</td>
+        <td><span class="tag tag-gpu">GPU</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="highlight-box" style="margin-top:24px">
+    <strong>Bottom line:</strong> It's not about which processor is "better." It's about matching the processor to the nature of the work.
+    Training floods every core with dense parallel math — GPUs love this.
+    Inference streams data sequentially to produce one token — CPUs handle this efficiently without wasting expensive GPU resources.
+  </div>
+</div>
+
+<script>
+  // Generate CPU cores (8)
+  const cpuEl = document.getElementById('cpu-cores');
+  for (let i = 0; i < 8; i++) {
+    const d = document.createElement('div');
+    d.className = 'core-unit';
+    d.style.animationDelay = (i * 0.06) + 's';
+    d.textContent = 'CORE';
+    cpuEl.appendChild(d);
+  }
+
+  // Generate GPU cores (many small)
+  const gpuEl = document.getElementById('gpu-cores');
+  for (let i = 0; i < 256; i++) {
+    const d = document.createElement('div');
+    d.className = 'core-unit';
+    d.style.animationDelay = (i * 0.003) + 's';
+    gpuEl.appendChild(d);
+  }
+</script>
+
+</body>
+</html>
